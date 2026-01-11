@@ -1,0 +1,27 @@
+# Core dependencies
+pykeepass>=4.0.0
+cryptography>=41.0.0
+argon2-cffi>=23.0.0
+
+# CLI
+click>=8.1.0
+pyperclip>=1.8.0
+colorama>=0.4.6
+
+# GUI
+PyQt6>=6.6.0
+PyQt6-Qt6>=6.6.0
+
+# TOTP Support
+pyotp>=2.9.0
+
+# Additional features
+python-dateutil>=2.8.0
+validators>=0.22.0
+qrcode>=7.4.0
+
+# Development
+pytest>=7.4.0
+pytest-cov>=4.1.0
+black>=23.0.0
+flake8>=6.1.0
