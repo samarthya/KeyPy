@@ -7,6 +7,7 @@ This document provides examples of using KeyPy for common password management ta
 - [Entry Management](#entry-management)
 - [Password Generation](#password-generation)
 - [Search and Retrieval](#search-and-retrieval)
+- [Duplicate Finder](#duplicate-finder)
 - [GUI Usage](#gui-usage)
 
 ## Database Management
@@ -159,6 +160,266 @@ keypy list mydatabase.kdbx -p "MasterPass" -s "^Git.*"
 # List all groups
 keypy groups mydatabase.kdbx -p "MasterPass"
 ```
+
+## Duplicate Finder
+
+KeyPy includes a powerful duplicate entry finder and optimizer to help maintain a clean password database.
+
+### Find Duplicates
+
+#### Basic Usage
+
+```bash
+# Find and display duplicate entries
+keypy find-duplicates mydatabase.kdbx -p "MasterPass"
+```
+
+This will scan your database and provide a detailed report including:
+- Total entries scanned
+- Number of duplicate groups
+- Details of each duplicate entry
+- Warnings for entries with different passwords
+
+#### Example Output
+
+```
+================================================================================
+Duplicate Entry Report
+================================================================================
+
+Statistics:
+  Total entries scanned:    150
+  Duplicate groups found:   3
+  Total duplicate entries:  8
+  Redundant entries:        5
+
+⚠ Warning: 1 group(s) have different passwords!
+
+Duplicate Groups:
+
+────────────────────────────────────────────────────────────────────────────────
+Group 1: https://github.com - user@example.com
+  Found 3 duplicate entries:
+
+  1. GitHub - Personal
+     Username: user@example.com
+     URL:      https://github.com
+     Group:    Root/Personal
+     Modified: 2024-01-15 10:30:00
+
+  2. GitHub - Work
+     Username: user@example.com
+     URL:      https://www.github.com
+     Group:    Root/Work
+     Modified: 2024-02-20 14:15:00
+
+  3. GitHub Old
+     Username: user@example.com
+     URL:      https://github.com
+     Group:    Root
+     Modified: 2023-11-10 09:00:00
+```
+
+### JSON Output
+
+```bash
+# Export report as JSON
+keypy find-duplicates mydatabase.kdbx -p "MasterPass" --json
+
+# Save JSON report to file
+keypy find-duplicates mydatabase.kdbx -p "MasterPass" --json --output duplicates.json
+```
+
+Example JSON output:
+```json
+{
+  "total_entries": 150,
+  "duplicate_groups": 3,
+  "total_duplicates": 8,
+  "redundant_entries": 5,
+  "groups": [
+    {
+      "url": "https://github.com",
+      "username": "user@example.com",
+      "count": 3,
+      "has_different_passwords": false,
+      "entries": [
+        {
+          "title": "GitHub - Personal",
+          "username": "user@example.com",
+          "url": "https://github.com",
+          "group": "Personal",
+          "modified": "2024-01-15T10:30:00+00:00"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Save Report to File
+
+```bash
+# Save human-readable report to text file
+keypy find-duplicates mydatabase.kdbx -p "MasterPass" --output report.txt
+```
+
+### Interactive Optimization
+
+The optimizer helps you clean up duplicate entries interactively:
+
+```bash
+# Start interactive optimization
+keypy optimize mydatabase.kdbx -p "MasterPass"
+```
+
+#### Optimization Workflow
+
+1. **Automatic Backup**: Creates a timestamped backup (e.g., `mydatabase.kdbx.backup.20240115_143000.kdbx`)
+2. **Review Each Group**: Shows all duplicate entries with full details
+3. **User Selection**: Choose which entry to keep
+4. **Confirmation**: Confirms before deleting any entries
+5. **Audit Log**: Creates a log file with all actions taken
+
+#### Interactive Options
+
+For each duplicate group, you can:
+- **1-N**: Keep entry number N and delete all others
+- **s**: Skip this group (keep all duplicates)
+- **q**: Quit optimization without making changes
+
+#### Example Session
+
+```
+================================================================================
+Interactive Duplicate Optimization
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+Group 1 of 3
+URL: https://github.com
+Username: user@example.com
+
+Duplicate entries:
+
+  [1] GitHub - Personal
+      Username: user@example.com
+      URL:      https://github.com
+      Group:    Root/Personal
+      Modified: 2024-01-15 10:30:00
+      Notes:    My personal GitHub account
+
+  [2] GitHub - Work
+      Username: user@example.com
+      URL:      https://www.github.com
+      Group:    Root/Work
+      Modified: 2024-02-20 14:15:00
+      Notes:    Work account, expires 2025
+
+  [3] GitHub Old
+      Username: user@example.com
+      URL:      https://github.com
+      Group:    Root
+      Modified: 2023-11-10 09:00:00
+
+Options:
+  1-N : Keep entry N and mark others for deletion
+  s   : Skip this group (keep all duplicates)
+  q   : Quit optimization
+
+Your choice: 2
+
+✓ Will keep: GitHub - Work
+  ✗ Will delete: GitHub - Personal
+  ✗ Will delete: GitHub Old
+```
+
+### Dry-Run Mode
+
+Preview what would be optimized without making any changes:
+
+```bash
+# Preview optimization without modifying database
+keypy optimize mydatabase.kdbx -p "MasterPass" --dry-run
+```
+
+Dry-run mode:
+- Shows exactly what would happen
+- No backup is created
+- No entries are deleted
+- Perfect for reviewing duplicates before committing
+
+### Safety Features
+
+The duplicate optimizer includes multiple safety features:
+
+1. **Automatic Backups**: Creates timestamped backup before any changes
+   - Format: `database.kdbx.backup.YYYYMMDD_HHMMSS.kdbx`
+   - Can restore by opening the backup file
+
+2. **Audit Logs**: Records all actions taken
+   - Format: `database.kdbx.audit.YYYYMMDD_HHMMSS.log`
+   - Includes timestamp, actions, and deleted entries
+
+3. **Password Warnings**: Alerts when duplicates have different passwords
+   - Helps avoid accidentally merging different accounts
+   - Shows warning prominently in red
+
+4. **Explicit Confirmation**: Never deletes without user confirmation
+   - Interactive selection for each group
+   - Final confirmation before applying changes
+
+5. **Dry-Run Mode**: Preview changes safely
+
+### Common Scenarios
+
+#### Scenario 1: Merge Accounts After URL Change
+
+If a service changed its URL (e.g., twitter.com → x.com):
+
+```bash
+# Find duplicates to see both entries
+keypy find-duplicates mydatabase.kdbx -p "MasterPass"
+
+# Optimize to keep only the current URL
+keypy optimize mydatabase.kdbx -p "MasterPass"
+# Select the entry with the new URL to keep
+```
+
+#### Scenario 2: Clean Up After Import
+
+After importing from another password manager:
+
+```bash
+# Check for duplicates
+keypy find-duplicates mydatabase.kdbx -p "MasterPass" --json --output import-duplicates.json
+
+# Review the JSON report
+cat import-duplicates.json
+
+# Optimize with dry-run first
+keypy optimize mydatabase.kdbx -p "MasterPass" --dry-run
+
+# Then optimize for real
+keypy optimize mydatabase.kdbx -p "MasterPass"
+```
+
+#### Scenario 3: Audit Duplicate Entries
+
+Generate a report for review without making changes:
+
+```bash
+# Generate detailed report
+keypy find-duplicates mydatabase.kdbx -p "MasterPass" --output audit-report.txt
+
+# Review the report
+less audit-report.txt
+
+# Optionally generate JSON for analysis
+keypy find-duplicates mydatabase.kdbx -p "MasterPass" --json --output audit-data.json
+```
+
+### View Groups
 
 ## GUI Usage
 
@@ -314,6 +575,9 @@ print(f"Passphrase: {passphrase}")
 6. **Password Length**: Use at least 16 characters for important accounts
 7. **Passphrases**: Consider passphrases for memorable but secure passwords
 8. **Never Share**: Never share your master password or database file
+9. **Regular Duplicate Checks**: Run `find-duplicates` periodically to keep your database clean
+10. **Safe Optimization**: Always use `--dry-run` first before optimizing duplicates
+11. **Keep Backups**: The optimizer creates automatic backups, but keep manual backups too
 
 ## Troubleshooting
 
