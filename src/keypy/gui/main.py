@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
     QTreeWidget, QTreeWidgetItem, QTableWidget, QTableWidgetItem,
     QLineEdit, QPushButton, QLabel, QMessageBox, QInputDialog,
     QFileDialog, QDialog, QFormLayout, QTextEdit, QMenuBar,
-    QMenu, QToolBar, QStatusBar, QSplitter
+    QMenu, QToolBar, QStatusBar, QSplitter, QCheckBox, QSpinBox
 )
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QAction, QIcon, QFont
@@ -395,7 +395,6 @@ class KeyPyMainWindow(QMainWindow):
     
     def _copy_password(self):
         """Copy password to clipboard."""
-        from PyQt6.QtWidgets import QApplication
         clipboard = QApplication.clipboard()
         clipboard.setText(self.detail_password.text())
         self.statusBar().showMessage("Password copied to clipboard", 2000)
@@ -630,8 +629,6 @@ class PasswordGeneratorDialog(QDialog):
         layout.addWidget(self.strength_label)
         
         # Options
-        from PyQt6.QtWidgets import QCheckBox, QSpinBox
-        
         options_layout = QFormLayout()
         
         self.length_spin = QSpinBox()
@@ -703,7 +700,6 @@ class PasswordGeneratorDialog(QDialog):
     
     def _copy_password(self):
         """Copy password to clipboard."""
-        from PyQt6.QtWidgets import QApplication
         clipboard = QApplication.clipboard()
         clipboard.setText(self.password_display.text())
         self.strength_label.setText("Password copied to clipboard!")
