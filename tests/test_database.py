@@ -10,7 +10,7 @@ from keypy.core.database import DatabaseManager
 @pytest.fixture
 def temp_db():
     """Create a temporary database file."""
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.kdbx', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode='wb', suffix='.kdbx', delete=False) as f:
         db_path = f.name
     yield db_path
     # Cleanup

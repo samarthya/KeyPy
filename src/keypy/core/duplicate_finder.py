@@ -1,9 +1,9 @@
 """Duplicate password finder and optimizer module."""
 from typing import List, Dict, Tuple, Optional
 from urllib.parse import urlparse
-import re
 from collections import defaultdict
 from datetime import datetime
+import shutil
 
 
 class DuplicateGroup:
@@ -173,7 +173,6 @@ class DuplicateFinder:
             True if successful, False otherwise
         """
         try:
-            import shutil
             shutil.copy2(self.kp.filename, backup_path)
             return True
         except Exception as e:
