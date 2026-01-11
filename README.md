@@ -20,6 +20,7 @@ KeyPy provides both command-line and graphical user interfaces for managing your
 - Generate passwords and passphrases
 - Copy passwords to clipboard
 - List groups and entries
+- Find and optimize duplicate entries
 
 ### Graphical User Interface (GUI) 🖥️
 - Modern PyQt6-based interface
@@ -34,6 +35,8 @@ KeyPy provides both command-line and graphical user interfaces for managing your
 - **TOTP Support**: Generate time-based one-time passwords (2FA)
 - **Password Strength Assessment**: Evaluate password entropy and strength
 - **Clipboard Integration**: Copy passwords securely
+- **Duplicate Finder**: Identify and manage duplicate password entries
+- **Database Optimizer**: Interactively clean up duplicate entries with automatic backups
 - **Cross-Platform**: Works on Windows, macOS, and Linux
 
 ## Installation
@@ -105,6 +108,27 @@ keypy delete mydatabase.kdbx -t "GitHub"
 keypy groups mydatabase.kdbx
 ```
 
+#### Find duplicate entries
+```bash
+# Display duplicate entries report
+keypy find-duplicates mydatabase.kdbx
+
+# Output report in JSON format
+keypy find-duplicates mydatabase.kdbx --json
+
+# Save report to a file
+keypy find-duplicates mydatabase.kdbx --output report.txt
+```
+
+#### Optimize duplicate entries
+```bash
+# Interactive optimization with backup
+keypy optimize mydatabase.kdbx
+
+# Preview changes without modifying database
+keypy optimize mydatabase.kdbx --dry-run
+```
+
 ### Graphical User Interface
 
 Launch the GUI application:
@@ -128,6 +152,70 @@ python -m keypy.gui.main
 - **Entry Table**: View all entries with details
 - **Details Panel**: View and copy entry information
 - **Password Generator**: Customize password generation options
+
+## Duplicate Finder & Optimizer
+
+KeyPy includes a powerful duplicate entry finder and optimizer to help maintain a clean password database.
+
+### Features
+
+- **Smart Detection**: Identifies duplicates based on URL and username
+- **URL Normalization**: Recognizes similar URLs (e.g., `https://example.com` and `https://www.example.com`)
+- **Case-Insensitive Matching**: Matches usernames regardless of case
+- **Password Warnings**: Alerts when entries have the same URL/username but different passwords
+- **Multiple Output Formats**: View reports in console or export as JSON
+- **Interactive Optimization**: Safely remove duplicates with user confirmation
+- **Automatic Backups**: Creates timestamped backups before making changes
+- **Audit Logging**: Tracks all optimization operations
+- **Dry-Run Mode**: Preview changes without modifying the database
+
+### Usage Examples
+
+#### Find Duplicates
+
+```bash
+# Display a detailed report of duplicate entries
+keypy find-duplicates mydatabase.kdbx
+
+# Output as JSON for programmatic processing
+keypy find-duplicates mydatabase.kdbx --json
+
+# Save report to a file
+keypy find-duplicates mydatabase.kdbx --output duplicates_report.txt
+```
+
+The report includes:
+- Total entries scanned
+- Number of duplicate groups found
+- Total redundant entries
+- Detailed information for each duplicate group
+- Warnings for entries with different passwords
+
+#### Optimize Database
+
+```bash
+# Interactive optimization mode
+keypy optimize mydatabase.kdbx
+
+# Preview changes without modifying database
+keypy optimize mydatabase.kdbx --dry-run
+```
+
+The optimizer will:
+1. Scan for duplicate entries
+2. Present each duplicate group interactively
+3. Allow you to select which entry to keep
+4. Create automatic backup before deletion
+5. Generate an audit log of all actions
+6. Require explicit confirmation before deletion
+
+### Safety Features
+
+- ✅ **Never automatically deletes** - always requires user confirmation
+- ✅ **Automatic backups** - creates timestamped backup files
+- ✅ **Audit logs** - records all optimization operations
+- ✅ **Dry-run mode** - preview changes safely
+- ✅ **Password warnings** - alerts about entries with different passwords
 
 ## Project Structure
 
@@ -196,10 +284,11 @@ KeyPy aims to replicate the core functionality of KeePassXC in Python:
 | Search Functionality | ✅ | ✅ |
 | Group Organization | ✅ | ✅ |
 | TOTP Support | ✅ | ✅ (basic) |
+| Duplicate Finder | ✅ | ✅ |
 | Browser Integration | ✅ | 🚧 (planned) |
 | Auto-Type | ✅ | 🚧 (planned) |
 | SSH Agent | ✅ | 🚧 (planned) |
-| Database Reports | ✅ | 🚧 (planned) |
+| Database Reports | ✅ | ✅ (duplicates) |
 
 ## Roadmap
 
@@ -209,11 +298,13 @@ KeyPy aims to replicate the core functionality of KeePassXC in Python:
 - [x] CLI interface
 - [x] GUI interface
 - [x] TOTP support
+- [x] Duplicate finder and optimizer
 
 ### Phase 2: Advanced Features 🚧
 - [ ] Entry attachments
 - [ ] Entry history
-- [ ] Database reports (password health, statistics)
+- [x] Database reports (duplicate detection)
+- [ ] Additional database reports (password health, statistics)
 - [ ] Import/Export (CSV, XML, HTML)
 - [ ] Auto-type functionality
 
