@@ -161,10 +161,18 @@ class DatabaseManager:
                 search_lower = search.lower()
                 for entry in self.kp.entries:
                     # Check title, username, url, and tags
+                    # Handle tags which might be a list or string
+                    tags_str = ""
+                    if entry.tags:
+                        if isinstance(entry.tags, list):
+                            tags_str = ",".join(entry.tags).lower()
+                        else:
+                            tags_str = str(entry.tags).lower()
+                    
                     if (entry.title and search_lower in entry.title.lower()) or \
                        (entry.username and search_lower in entry.username.lower()) or \
                        (entry.url and search_lower in entry.url.lower()) or \
-                       (entry.tags and search_lower in entry.tags.lower()):
+                       (tags_str and search_lower in tags_str):
                         results.append(entry)
                 return results
             else:
@@ -209,8 +217,8 @@ class DatabaseManager:
         
         try:
             if use_recycle_bin:
-                # Move to recycle bin (trash group)
-                self.kp.move_entry(entry, self.kp.trash_group)
+                # Use PyKeePass's trash_entry method
+                self.kp.trash_entry(entry)
             else:
                 # Permanent deletion
                 self.kp.delete_entry(entry)
@@ -346,12 +354,20 @@ class DatabaseManager:
                 writer.writeheader()
                 
                 for entry in self.kp.entries:
+                    # Convert tags list to comma-separated string
+                    tags_str = ''
+                    if entry.tags:
+                        if isinstance(entry.tags, list):
+                            tags_str = ','.join(entry.tags)
+                        else:
+                            tags_str = str(entry.tags)
+                    
                     row = {
                         'title': entry.title or '',
                         'username': entry.username or '',
                         'url': entry.url or '',
                         'notes': entry.notes or '',
-                        'tags': entry.tags or '',
+                        'tags': tags_str,
                         'group': entry.group.name if entry.group else ''
                     }
                     if include_passwords:
