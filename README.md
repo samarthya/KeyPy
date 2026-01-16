@@ -10,26 +10,33 @@ KeyPy provides both command-line and graphical user interfaces for managing your
 - **KDBX Format Support**: Create, open, and manage KeePass databases (KDBX3/KDBX4)
 - **Strong Encryption**: Uses industry-standard encryption (AES-256, ChaCha20, Twofish)
 - **Password Generator**: Generate strong passwords and passphrases
-- **Search Functionality**: Quickly find entries across your database
+- **Search Functionality**: Quickly find entries across your database (including tags)
 - **Group Organization**: Organize entries into groups and subgroups
 - **Entry Management**: Add, edit, delete, and view password entries
+- **Tags & Icons**: Label entries with tags for better organization and assign icons
+- **Import/Export**: Import and export entries in CSV format or merge KDBX databases
 
 ### Command-Line Interface (CLI) 💻
 - Create and manage databases
-- Add, edit, delete, and search entries
+- Add, edit, delete, and search entries with tags
 - Generate passwords and passphrases
 - Copy passwords to clipboard
 - List groups and entries
 - Find and optimize duplicate entries
+- Export entries to CSV format
+- Import entries from CSV or KDBX databases
 
 ### Graphical User Interface (GUI) 🖥️
 - Modern PyQt6-based interface
 - Tree view for groups
-- Searchable entry table
+- Searchable entry table with tags column
 - Password visibility toggle
-- Entry details panel
+- Entry details panel with tags display
 - Password generator dialog
 - Intuitive menus and toolbar
+- Auto-save prompts for unsaved changes
+- CSV and KDBX import/export dialogs
+- Safe deletion with recycle bin option
 
 ### Advanced Features 🚀
 - **TOTP Support**: Generate time-based one-time passwords (2FA)
@@ -37,6 +44,11 @@ KeyPy provides both command-line and graphical user interfaces for managing your
 - **Clipboard Integration**: Copy passwords securely
 - **Duplicate Finder**: Identify and manage duplicate password entries
 - **Database Optimizer**: Interactively clean up duplicate entries with automatic backups
+- **Safe Deletion**: Move entries to recycle bin instead of permanent deletion
+- **Tags & Labels**: Organize entries with custom tags for easy searching
+- **Entry Icons**: Visual indicators for entries (68 built-in icons)
+- **CSV Import/Export**: Backup or migrate entries using CSV format
+- **KDBX Import**: Merge entries from other KeePass databases with duplicate detection
 - **Cross-Platform**: Works on Windows, macOS, and Linux
 
 ## Installation
@@ -73,14 +85,23 @@ keypy create mydatabase.kdbx
 keypy add mydatabase.kdbx -t "GitHub" -u "user@example.com" --generate
 ```
 
+#### Add an entry with tags and icon
+```bash
+keypy add mydatabase.kdbx -t "GitHub" -u "user@example.com" --generate \
+  --tags "work,dev,important" --icon "1" --url "https://github.com"
+```
+
 #### List entries
 ```bash
 keypy list mydatabase.kdbx
 ```
 
-#### Search for entries
+#### Search for entries (searches title, username, URL, and tags)
 ```bash
 keypy list mydatabase.kdbx -s "github"
+
+# Search by tag
+keypy list mydatabase.kdbx -s "work"
 ```
 
 #### Get a password
@@ -129,6 +150,32 @@ keypy optimize mydatabase.kdbx
 keypy optimize mydatabase.kdbx --dry-run
 ```
 
+#### Export entries to CSV
+```bash
+# Export without passwords (safer)
+keypy export-csv mydatabase.kdbx exported_entries.csv
+
+# Export with passwords (WARNING: CSV is not encrypted!)
+keypy export-csv mydatabase.kdbx exported_entries.csv --include-passwords
+```
+
+#### Import entries from CSV
+```bash
+# Import entries from CSV file
+keypy import-csv mydatabase.kdbx entries.csv
+
+# Import to a specific group
+keypy import-csv mydatabase.kdbx entries.csv --group "Imported"
+```
+
+#### Import entries from another KDBX database
+```bash
+# Merge another database (duplicates are skipped)
+keypy import-kdbx mydatabase.kdbx source.kdbx
+
+# Will prompt for passwords for both databases
+```
+
 ### Graphical User Interface
 
 Launch the GUI application:
@@ -145,12 +192,19 @@ python -m keypy.gui.main
 
 #### GUI Features:
 - **File Menu**: Create, open, and save databases
+  - Import from CSV or KDBX
+  - Export to CSV
 - **Entry Menu**: Add, edit, and delete entries
+  - Assign tags and icons to entries
+  - Safe deletion with recycle bin option
 - **Tools Menu**: Generate passwords
-- **Search Bar**: Filter entries in real-time
+- **Search Bar**: Filter entries in real-time (searches title, username, URL, and tags)
 - **Group Tree**: Browse and organize entries by groups
-- **Entry Table**: View all entries with details
+- **Entry Table**: View all entries with details including tags
 - **Details Panel**: View and copy entry information
+  - Display tags for each entry
+  - Toggle password visibility
+- **Auto-save prompts**: Get notified when closing with unsaved changes
 - **Password Generator**: Customize password generation options
 
 ## Duplicate Finder & Optimizer
