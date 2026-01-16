@@ -68,8 +68,8 @@ class KeyPyMainWindow(QMainWindow):
         
         # Entry table
         self.entry_table = QTableWidget()
-        self.entry_table.setColumnCount(4)
-        self.entry_table.setHorizontalHeaderLabels(["Title", "Username", "URL", "Modified"])
+        self.entry_table.setColumnCount(5)
+        self.entry_table.setHorizontalHeaderLabels(["Title", "Username", "URL", "Tags", "Modified"])
         self.entry_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.entry_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.entry_table.doubleClicked.connect(self._on_entry_double_clicked)
@@ -91,6 +91,7 @@ class KeyPyMainWindow(QMainWindow):
         self.detail_password.setEchoMode(QLineEdit.EchoMode.Password)
         self.detail_password.setReadOnly(True)
         self.detail_url = QLabel()
+        self.detail_tags = QLabel()
         self.detail_notes = QTextEdit()
         self.detail_notes.setReadOnly(True)
         self.detail_notes.setMaximumHeight(80)
@@ -99,6 +100,7 @@ class KeyPyMainWindow(QMainWindow):
         details_layout.addRow("Username:", self.detail_username)
         details_layout.addRow("Password:", self.detail_password)
         details_layout.addRow("URL:", self.detail_url)
+        details_layout.addRow("Tags:", self.detail_tags)
         details_layout.addRow("Notes:", self.detail_notes)
         
         # Toggle password visibility button
@@ -140,6 +142,21 @@ class KeyPyMainWindow(QMainWindow):
         save_action.setShortcut("Ctrl+S")
         save_action.triggered.connect(self._save_database)
         file_menu.addAction(save_action)
+        
+        file_menu.addSeparator()
+        
+        # Import/Export submenu
+        import_action = QAction("&Import from CSV...", self)
+        import_action.triggered.connect(self._import_csv)
+        file_menu.addAction(import_action)
+        
+        import_kdbx_action = QAction("Import from &KDBX...", self)
+        import_kdbx_action.triggered.connect(self._import_kdbx)
+        file_menu.addAction(import_kdbx_action)
+        
+        export_action = QAction("&Export to CSV...", self)
+        export_action.triggered.connect(self._export_csv)
+        file_menu.addAction(export_action)
         
         file_menu.addSeparator()
         
@@ -337,7 +354,8 @@ class KeyPyMainWindow(QMainWindow):
             self.entry_table.setItem(i, 0, QTableWidgetItem(entry.title or ""))
             self.entry_table.setItem(i, 1, QTableWidgetItem(entry.username or ""))
             self.entry_table.setItem(i, 2, QTableWidgetItem(entry.url or ""))
-            self.entry_table.setItem(i, 3, QTableWidgetItem(str(entry.mtime) if entry.mtime else ""))
+            self.entry_table.setItem(i, 3, QTableWidgetItem(entry.tags or ""))
+            self.entry_table.setItem(i, 4, QTableWidgetItem(str(entry.mtime) if entry.mtime else ""))
             
             # Store entry object
             self.entry_table.item(i, 0).setData(Qt.ItemDataRole.UserRole, entry)
@@ -363,7 +381,8 @@ class KeyPyMainWindow(QMainWindow):
             self.entry_table.setItem(i, 0, QTableWidgetItem(entry.title or ""))
             self.entry_table.setItem(i, 1, QTableWidgetItem(entry.username or ""))
             self.entry_table.setItem(i, 2, QTableWidgetItem(entry.url or ""))
-            self.entry_table.setItem(i, 3, QTableWidgetItem(str(entry.mtime) if entry.mtime else ""))
+            self.entry_table.setItem(i, 3, QTableWidgetItem(entry.tags or ""))
+            self.entry_table.setItem(i, 4, QTableWidgetItem(str(entry.mtime) if entry.mtime else ""))
             self.entry_table.item(i, 0).setData(Qt.ItemDataRole.UserRole, entry)
     
     def _on_entry_double_clicked(self):
@@ -382,6 +401,7 @@ class KeyPyMainWindow(QMainWindow):
         self.detail_username.setText(entry.username or "")
         self.detail_password.setText(entry.password or "")
         self.detail_url.setText(entry.url or "")
+        self.detail_tags.setText(entry.tags or "")
         self.detail_notes.setText(entry.notes or "")
     
     def _toggle_password_visibility(self):
@@ -414,7 +434,9 @@ class KeyPyMainWindow(QMainWindow):
                 data['username'],
                 data['password'],
                 data['url'],
-                data['notes']
+                data['notes'],
+                data.get('tags'),
+                data.get('icon')
             ):
                 self.statusBar().showMessage("Entry added")
                 self._load_entries()
@@ -443,9 +465,24 @@ class KeyPyMainWindow(QMainWindow):
                 username=data['username'],
                 password=data['password'],
                 url=data['url'],
-                notes=data['notes']
+                notes=data['notes'],
+                tags=data.get('tags'),
+                icon=data.get('icon')
             ):
-                self.statusBar().showMessage("Entry updated")
+                # Prompt to save changes
+                reply = QMessageBox.question(
+                    self,
+                    "Save Changes",
+                    "Do you want to save the changes to the database?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                )
+                
+                if reply == QMessageBox.StandardButton.Yes:
+                    self.db_manager.save()
+                    self.statusBar().showMessage("Entry updated and saved")
+                else:
+                    self.statusBar().showMessage("Entry updated (not saved)")
+                    
                 self._load_entries()
             else:
                 QMessageBox.critical(self, "Error", "Failed to update entry!")
@@ -471,8 +508,20 @@ class KeyPyMainWindow(QMainWindow):
         )
         
         if reply == QMessageBox.StandardButton.Yes:
-            if self.db_manager.delete_entry(entry):
-                self.statusBar().showMessage("Entry deleted")
+            # Ask if user wants to move to recycle bin or permanently delete
+            recycle_reply = QMessageBox.question(
+                self,
+                "Delete Method",
+                "Move to recycle bin (safer) or permanently delete?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes
+            )
+            
+            use_recycle_bin = (recycle_reply == QMessageBox.StandardButton.Yes)
+            
+            if self.db_manager.delete_entry(entry, use_recycle_bin=use_recycle_bin):
+                msg = "Entry moved to recycle bin" if use_recycle_bin else "Entry permanently deleted"
+                self.statusBar().showMessage(msg)
                 self._load_entries()
                 self._clear_details()
             else:
@@ -484,12 +533,142 @@ class KeyPyMainWindow(QMainWindow):
         self.detail_username.setText("")
         self.detail_password.setText("")
         self.detail_url.setText("")
+        self.detail_tags.setText("")
         self.detail_notes.setText("")
     
     def _generate_password(self):
         """Show password generator dialog."""
         dialog = PasswordGeneratorDialog(self, self.password_generator)
         dialog.exec()
+    
+    def _export_csv(self):
+        """Export database to CSV."""
+        if not self.db_manager.is_open():
+            QMessageBox.warning(self, "Warning", "No database is open!")
+            return
+        
+        filepath, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export to CSV",
+            "",
+            "CSV Files (*.csv)"
+        )
+        
+        if not filepath:
+            return
+        
+        reply = QMessageBox.question(
+            self,
+            "Include Passwords",
+            "Do you want to include passwords in the export?\n(Warning: CSV files are not encrypted!)",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        
+        include_passwords = (reply == QMessageBox.StandardButton.Yes)
+        
+        if self.db_manager.export_to_csv(filepath, include_passwords):
+            QMessageBox.information(self, "Success", f"Database exported to {filepath}")
+        else:
+            QMessageBox.critical(self, "Error", "Failed to export database!")
+    
+    def _import_csv(self):
+        """Import entries from CSV."""
+        if not self.db_manager.is_open():
+            QMessageBox.warning(self, "Warning", "No database is open!")
+            return
+        
+        filepath, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import from CSV",
+            "",
+            "CSV Files (*.csv)"
+        )
+        
+        if not filepath:
+            return
+        
+        results = self.db_manager.import_from_csv(filepath)
+        
+        if 'error' in results:
+            QMessageBox.critical(self, "Error", results['error'])
+        else:
+            msg = f"Import completed:\n"
+            msg += f"Successfully imported: {results['success']}\n"
+            msg += f"Failed: {results['failed']}\n"
+            msg += f"Duplicates skipped: {len(results['duplicates'])}"
+            
+            if results.get('errors'):
+                msg += f"\n\nErrors:\n" + "\n".join(results['errors'][:5])
+            
+            QMessageBox.information(self, "Import Results", msg)
+            self._load_entries()
+    
+    def _import_kdbx(self):
+        """Import entries from another KDBX database."""
+        if not self.db_manager.is_open():
+            QMessageBox.warning(self, "Warning", "No database is open!")
+            return
+        
+        filepath, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import from KDBX",
+            "",
+            "KeePass Database (*.kdbx)"
+        )
+        
+        if not filepath:
+            return
+        
+        password, ok = QInputDialog.getText(
+            self,
+            "Source Database Password",
+            "Enter password for source database:",
+            QLineEdit.EchoMode.Password
+        )
+        
+        if not ok or not password:
+            return
+        
+        results = self.db_manager.import_from_kdbx(filepath, password)
+        
+        if 'error' in results:
+            QMessageBox.critical(self, "Error", results['error'])
+        else:
+            msg = f"Import completed:\n"
+            msg += f"Successfully imported: {results['success']}\n"
+            msg += f"Failed: {results['failed']}\n"
+            msg += f"Duplicates found: {len(results['duplicates'])}"
+            
+            if results['duplicates']:
+                msg += f"\n\nDuplicate entries were skipped. Review the database to merge if needed."
+            
+            if results.get('errors'):
+                msg += f"\n\nErrors:\n" + "\n".join(results['errors'][:5])
+            
+            QMessageBox.information(self, "Import Results", msg)
+            self._load_entries()
+    
+    def closeEvent(self, event):
+        """Handle window close event."""
+        if self.db_manager.modified:
+            reply = QMessageBox.question(
+                self,
+                "Unsaved Changes",
+                "You have unsaved changes. Do you want to save before closing?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel
+            )
+            
+            if reply == QMessageBox.StandardButton.Yes:
+                if self.db_manager.save():
+                    event.accept()
+                else:
+                    event.ignore()
+            elif reply == QMessageBox.StandardButton.No:
+                event.accept()
+            else:
+                event.ignore()
+        else:
+            event.accept()
     
     def _show_about(self):
         """Show about dialog."""
@@ -535,8 +714,14 @@ class EntryDialog(QDialog):
         self.username_input = QLineEdit()
         self.password_input = QLineEdit()
         self.url_input = QLineEdit()
+        self.tags_input = QLineEdit()
+        self.tags_input.setPlaceholderText("Comma-separated tags (e.g., work, important)")
         self.notes_input = QTextEdit()
         self.notes_input.setMaximumHeight(100)
+        
+        # Icon selection (simplified - using standard icon names)
+        self.icon_input = QLineEdit()
+        self.icon_input.setPlaceholderText("Icon number (0-68) or leave empty for default")
         
         form_layout.addRow("Group:", self.group_input)
         form_layout.addRow("Title:", self.title_input)
@@ -551,6 +736,8 @@ class EntryDialog(QDialog):
         form_layout.addRow("Password:", password_layout)
         
         form_layout.addRow("URL:", self.url_input)
+        form_layout.addRow("Tags:", self.tags_input)
+        form_layout.addRow("Icon:", self.icon_input)
         form_layout.addRow("Notes:", self.notes_input)
         
         layout.addLayout(form_layout)
@@ -577,6 +764,8 @@ class EntryDialog(QDialog):
         self.username_input.setText(self.entry.username or "")
         self.password_input.setText(self.entry.password or "")
         self.url_input.setText(self.entry.url or "")
+        self.tags_input.setText(self.entry.tags or "")
+        self.icon_input.setText(str(self.entry.icon) if self.entry.icon else "")
         self.notes_input.setText(self.entry.notes or "")
     
     def _generate_password(self):
@@ -592,6 +781,8 @@ class EntryDialog(QDialog):
             'username': self.username_input.text(),
             'password': self.password_input.text(),
             'url': self.url_input.text(),
+            'tags': self.tags_input.text(),
+            'icon': self.icon_input.text(),
             'notes': self.notes_input.toPlainText()
         }
 
