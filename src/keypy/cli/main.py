@@ -69,9 +69,11 @@ def create(database, password, keyfile):
 @click.option("--password-value", "--pw", help="Password (will generate if not provided)")
 @click.option("--url", help="URL")
 @click.option("--notes", "-n", help="Notes")
+@click.option("--tags", help="Tags (comma-separated)")
+@click.option("--icon", help="Icon number (0-68)")
 @click.option("--generate", is_flag=True, help="Generate password")
 @click.option("--length", "-l", default=16, help="Generated password length")
-def add(database, password, keyfile, group, title, username, password_value, url, notes, generate, length):
+def add(database, password, keyfile, group, title, username, password_value, url, notes, tags, icon, generate, length):
     """Add a new entry to the database."""
     if not password:
         password = getpass("Enter master password: ")
@@ -85,7 +87,7 @@ def add(database, password, keyfile, group, title, username, password_value, url
         password_value = password_generator.generate(length=length)
         click.echo(f"{Fore.CYAN}Generated password: {password_value}")
     
-    if db_manager.add_entry(group, title, username, password_value, url, notes):
+    if db_manager.add_entry(group, title, username, password_value, url, notes, tags, icon):
         click.echo(f"{Fore.GREEN}Entry '{title}' added successfully!")
     else:
         click.echo(f"{Fore.RED}Failed to add entry")
@@ -612,6 +614,135 @@ def optimize(database, password, keyfile, dry_run):
             f.write(f"\nTotal entries deleted: {deleted_count}\n")
         
         click.echo(f"{Fore.CYAN}Audit log saved: {audit_file}")
+
+
+@cli.command("export-csv")
+@click.argument("database", type=click.Path(exists=True))
+@click.argument("output", type=click.Path())
+@click.option("--password", "-p", help="Master password (will prompt if not provided)")
+@click.option("--keyfile", "-k", type=click.Path(exists=True), help="Key file path")
+@click.option("--include-passwords", is_flag=True, help="Include passwords in export (WARNING: CSV is not encrypted!)")
+def export_csv(database, output, password, keyfile, include_passwords):
+    """Export database entries to CSV file.
+    
+    WARNING: CSV files are not encrypted. Be careful when exporting passwords.
+    """
+    if not password:
+        password = getpass("Enter master password: ")
+    
+    if not db_manager.open(database, password, keyfile):
+        click.echo(f"{Fore.RED}Failed to open database")
+        sys.exit(1)
+    
+    if include_passwords:
+        if not click.confirm(f"{Fore.YELLOW}WARNING: Passwords will be exported in plain text! Continue?"):
+            click.echo("Export cancelled")
+            return
+    
+    click.echo(f"{Fore.CYAN}Exporting database to CSV...")
+    
+    if db_manager.export_to_csv(output, include_passwords):
+        click.echo(f"{Fore.GREEN}✓ Database exported successfully to {output}")
+    else:
+        click.echo(f"{Fore.RED}Failed to export database")
+        sys.exit(1)
+
+
+@cli.command("import-csv")
+@click.argument("database", type=click.Path(exists=True))
+@click.argument("input", type=click.Path(exists=True))
+@click.option("--password", "-p", help="Master password (will prompt if not provided)")
+@click.option("--keyfile", "-k", type=click.Path(exists=True), help="Key file path")
+@click.option("--group", "-g", default="Imported", help="Default group for imported entries")
+def import_csv(database, input, password, keyfile, group):
+    """Import entries from CSV file.
+    
+    CSV should have columns: title, username, password, url, notes, tags, group
+    """
+    if not password:
+        password = getpass("Enter master password: ")
+    
+    if not db_manager.open(database, password, keyfile):
+        click.echo(f"{Fore.RED}Failed to open database")
+        sys.exit(1)
+    
+    click.echo(f"{Fore.CYAN}Importing entries from CSV...")
+    
+    results = db_manager.import_from_csv(input, group)
+    
+    if 'error' in results:
+        click.echo(f"{Fore.RED}Error: {results['error']}")
+        sys.exit(1)
+    
+    click.echo(f"\n{Fore.GREEN}Import completed:")
+    click.echo(f"  Successfully imported: {results['success']}")
+    click.echo(f"  Failed: {results['failed']}")
+    click.echo(f"  Duplicates skipped: {len(results['duplicates'])}")
+    
+    if results['duplicates']:
+        click.echo(f"\n{Fore.YELLOW}Duplicate entries (skipped):")
+        for dup in results['duplicates'][:5]:
+            click.echo(f"  - {dup['title']} ({dup['username']})")
+        if len(results['duplicates']) > 5:
+            click.echo(f"  ... and {len(results['duplicates']) - 5} more")
+    
+    if results.get('errors'):
+        click.echo(f"\n{Fore.RED}Errors:")
+        for error in results['errors'][:5]:
+            click.echo(f"  - {error}")
+        if len(results['errors']) > 5:
+            click.echo(f"  ... and {len(results['errors']) - 5} more")
+
+
+@cli.command("import-kdbx")
+@click.argument("database", type=click.Path(exists=True))
+@click.argument("source", type=click.Path(exists=True))
+@click.option("--password", "-p", help="Master password for target database (will prompt if not provided)")
+@click.option("--keyfile", "-k", type=click.Path(exists=True), help="Key file for target database")
+@click.option("--source-password", "--sp", help="Password for source database (will prompt if not provided)")
+@click.option("--source-keyfile", "--sk", type=click.Path(exists=True), help="Key file for source database")
+def import_kdbx(database, source, password, keyfile, source_password, source_keyfile):
+    """Import entries from another KDBX database.
+    
+    Merges entries from source database into target database.
+    Duplicate entries (same title, username, URL) are skipped.
+    """
+    if not password:
+        password = getpass("Enter target database password: ")
+    
+    if not source_password:
+        source_password = getpass("Enter source database password: ")
+    
+    if not db_manager.open(database, password, keyfile):
+        click.echo(f"{Fore.RED}Failed to open target database")
+        sys.exit(1)
+    
+    click.echo(f"{Fore.CYAN}Importing entries from {source}...")
+    
+    results = db_manager.import_from_kdbx(source, source_password, source_keyfile)
+    
+    if 'error' in results:
+        click.echo(f"{Fore.RED}Error: {results['error']}")
+        sys.exit(1)
+    
+    click.echo(f"\n{Fore.GREEN}Import completed:")
+    click.echo(f"  Successfully imported: {results['success']}")
+    click.echo(f"  Failed: {results['failed']}")
+    click.echo(f"  Duplicates found: {len(results['duplicates'])}")
+    
+    if results['duplicates']:
+        click.echo(f"\n{Fore.YELLOW}Duplicate entries (skipped):")
+        for dup in results['duplicates'][:5]:
+            click.echo(f"  - {dup['title']} ({dup['username']}) - {dup['url']}")
+        if len(results['duplicates']) > 5:
+            click.echo(f"  ... and {len(results['duplicates']) - 5} more")
+    
+    if results.get('errors'):
+        click.echo(f"\n{Fore.RED}Errors:")
+        for error in results['errors'][:5]:
+            click.echo(f"  - {error}")
+        if len(results['errors']) > 5:
+            click.echo(f"  ... and {len(results['errors']) - 5} more")
 
 
 if __name__ == "__main__":

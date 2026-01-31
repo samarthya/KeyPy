@@ -98,8 +98,8 @@ def test_delete_entry(temp_db):
     entries = manager.get_entries()
     assert len(entries) == 1
     
-    # Delete it
-    result = manager.delete_entry(entries[0])
+    # Delete it permanently (not using recycle bin for test)
+    result = manager.delete_entry(entries[0], use_recycle_bin=False)
     assert result is True
     
     # Verify it's gone
